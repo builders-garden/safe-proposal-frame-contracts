@@ -3,15 +3,15 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import { fid, hash, timestamp } from './constants';
 import { blake3 } from "@noble/hashes/blake3";
-import { Test } from '../typechain-types';
+import { ProposalModule } from '../typechain-types';
 import { signFarcasterMessage } from './utils';
 
 
 const ed25519Signer = Factories.Ed25519Signer.build();
 
 
-describe('Test decodings', async () => {
-  let test: Test;
+describe('ProposalModule decodings', async () => {
+  let test: ProposalModule;
 
   it('Deploy', async () => {
     const Blake3 = await ethers.getContractFactory('Blake3');
@@ -31,16 +31,18 @@ describe('Test decodings', async () => {
     });
     const ed25519 = await Ed25519.deploy();
 
-    const Test = await ethers.getContractFactory('Test', {
+    const ProposalModule = await ethers.getContractFactory('ProposalModule', {
       libraries: {
         Blake3: blake3.target,
         Ed25519: ed25519.target,
       }
     });
-    test = await Test.deploy();
+    const ownerAddress = "0x506A0A501EEa89d36B0308d965F78553D75cCBE5"
+    const safeAddress = "0x506A0A501EEa89d36B0308d965F78553D75cCBE5"
+    test = await ProposalModule.deploy(ownerAddress, safeAddress);
   });
 
-  describe('Test messages', async () => {
+  describe('ProposalModule messages', async () => {
     it('CastAddBody', async () => {
       const message_data: MessageData = {
         type: MessageType.CAST_ADD,

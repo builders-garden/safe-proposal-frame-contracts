@@ -18,7 +18,7 @@ import {
 } from './libraries/Ed25519.sol';
 
 
-contract Test {
+contract MessaggeVerifier {
   event MessageCastAddVerified(
     uint64 fid,
     string text,
@@ -127,12 +127,13 @@ contract Test {
     );
   }
 
+  /*
   function verifyFrameActionBodyMessage(
     bytes32 public_key,
     bytes32 signature_r,
     bytes32 signature_s,
     bytes memory message
-  ) external {
+  ) external virtual {
     MessageData memory message_data = _verifyMessage(
       public_key,
       signature_r,
@@ -152,4 +153,5 @@ contract Test {
       message_data.frame_action_body.url
     );
   }
+  */
 }
