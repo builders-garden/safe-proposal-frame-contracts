@@ -1,5 +1,5 @@
 # Safe Proposal Frame
-A Safe Module that allows an owner address to create one or more Proposals for transferring a specified amount of tokens. A Proposal can be only voted by Farcaster users with a FID =< 20000. The backend takes the signed user Farcaster message and calls the verifyFrameActionBodyMessage method to validate the message and store the vote (button index 1 is "yes", button index 2 is "no"). The proposal execution can be triggered by anyone if the number of accepting votes or rejecting votes reaches the threshold value set by the owner.
+A Safe Module that allows an owner address to create one or more Proposals for transferring a specified amount of tokens. A Proposal can be only voted by Farcaster users with a FID =< minFid set by the owner when creating the Proposal. The backend takes the signed user Farcaster message and calls the verifyFrameActionBodyMessage method to validate the message and store the vote (button index 1 is "yes", button index 2 is "no"). The proposal execution can be triggered by anyone if the number of accepting votes or rejecting votes reaches the threshold value set by the owner.
 
 This is the first experiment of an on-chain proposal voted and executed on the Farcaster social layer.
 
@@ -13,6 +13,7 @@ The owner address can create a Proposal passing the following params:
 - uint256 amount
 - address to
 - uint256 threshold
+- uint256 minFid
 
 # Vote a Proposal
 Anyone can call the verifyFrameActionBodyMessage method by passing the following params to vote:
@@ -22,7 +23,7 @@ Anyone can call the verifyFrameActionBodyMessage method by passing the following
 - bytes memory message,
 - uint256 proposalId
 
-The message, signature and public key are retrieved by the message sent through the Frame interaction by the user interacting with the Frame
+The message, signature and public key are retrieved by the message sent through the Frame interaction by the user interacting with the Frame. The Proposal must not be terminated (executeProposal has not been called yet)
 
 # Execute a Proposal
 Anyone can call the executeProposal method by passing the following params to execute a Proposal when the number of acceptVotes or rejectVotes reaches the threshold value:
