@@ -6267,7 +6267,7 @@ contract ProposalModule is MessaggeVerifier {
       revert InvalidMessageType();
     }
 
-    require(message_data.frame_action_body.cast_id.fid > minFid, "invalid proposal id");
+    require(message_data.frame_action_body.cast_id.fid <= minFid, "fid must be less than minFid (10000)");
 
     // if the users clicks the first button, we accept the proposal, otherwise we reject it
     if (message_data.frame_action_body.button_index == 1) {
