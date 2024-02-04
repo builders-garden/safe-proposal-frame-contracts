@@ -34,6 +34,8 @@ contract ProposalModule is MessaggeVerifier {
         uint256 threshold;
         uint256 acceptVotes;
         uint256 rejectVotes;
+        bool terminated;
+        uint256 minFid;
     }
 
     address public owner;
@@ -64,15 +66,19 @@ contract ProposalModule is MessaggeVerifier {
     function createProposal(address token, uint256 amount, address to, uint256 threshold) public {
         require(msg.sender == owner, "only owner can create proposal");
         uint256 proposalId = uint256(keccak256(abi.encodePacked(token, amount, threshold, block.timestamp)));
-        proposals[proposalId] = Proposal(token, amount, to, threshold, 0, 0);
+        proposals[proposalId] = Proposal(token, amount, to, threshold, 0, 0, false, minFid);
         emit ProposalCreated(proposalId, token, amount, to, threshold);
     }
 
     function executeProposal (uint256 proposalId) public {
         Proposal memory proposal = proposals[proposalId];
-        require(proposal.acceptVotes >= proposal.threshold, "proposal has not reached threshold");
-        bytes memory data = abi.encodeWithSignature("transfer(address,uint256)", proposal.to, proposal.amount);
-        require(GnosisSafe(safe).execTransactionFromModule(proposal.token, 0, data, Enum.Operation.Call), "Could not execute token transfer");
+        if (proposal.acceptVotes >= proposal.threshold) {
+            bytes memory data = abi.encodeWithSignature("transfer(address,uint256)", proposal.to, proposal.amount);
+            require(GnosisSafe(safe).execTransactionFromModule(proposal.token, 0, data, Enum.Operation.Call), "Could not execute token transfer");
+            proposal.terminated = true;
+        } else if (proposal.rejectVotes >= proposal.threshold) {
+            proposal.terminated = true;
+        }
     }
 
     function verifyFrameActionBodyMessage(
@@ -92,8 +98,9 @@ contract ProposalModule is MessaggeVerifier {
     if (message_data.type_ != MessageType.MESSAGE_TYPE_FRAME_ACTION) {
       revert InvalidMessageType();
     }
+    require (!proposals[proposalId].terminated, "proposal already terminated");
 
-    require(message_data.frame_action_body.cast_id.fid <= minFid, "fid must be less than minFid (10000)");
+    require(message_data.frame_action_body.cast_id.fid <= proposals[proposalId].minFid, "fid must be less than the proposal minFid");
 
     // if the users clicks the first button, we accept the proposal, otherwise we reject it
     if (message_data.frame_action_body.button_index == 1) {
