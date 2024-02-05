@@ -297,6 +297,16 @@
         "internalType": "uint256",
         "name": "rejectVotes",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "terminated",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minFid",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",

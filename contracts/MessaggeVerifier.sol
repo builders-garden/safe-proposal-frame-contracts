@@ -37,7 +37,11 @@ contract MessaggeVerifier {
     uint32 button_index,
     uint64 target_fid,
     bytes target_hash,
-    bytes url
+    bytes url,
+    uint256 proposalId,
+    bool isAccept,
+    uint256 acceptVotes,
+    uint256 rejectVotes
   );
 
   error InvalidSignature();
