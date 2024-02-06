@@ -5994,7 +5994,11 @@ contract MessaggeVerifier {
     uint32 button_index,
     uint64 target_fid,
     bytes target_hash,
-    bytes url
+    bytes url,
+    uint256 proposalId,
+    bool isAccept,
+    uint256 acceptVotes,
+    uint256 rejectVotes
   );
 
   error InvalidSignature();
@@ -6199,7 +6203,8 @@ interface GnosisSafe {
 
 contract ProposalModule is MessaggeVerifier {
 
-    event ProposalCreated(uint256 proposalId, address token, uint256 amount, address to, uint256 threshold);
+    event ProposalCreated(uint256 proposalId, address token, uint256 amount, address to, uint256 threshold, uint256 minFid, bool terminated, uint256 creationTime);
+    event ProposalExecuted(uint256 proposalId, address token, uint256 amount, address to, uint256 threshold, uint256 minFid, bool terminated, uint256 executionTime);
 
     struct Proposal {
         address token;
@@ -6215,9 +6220,8 @@ contract ProposalModule is MessaggeVerifier {
     address public owner;
     address public safe;
     bool public initialized;
+    uint256 public lastProposalId;
  
-    uint256 public minFid = 10000;
-
     mapping (uint256 => Proposal) public proposals;
     mapping (bytes32 => mapping(uint256 => bool)) public voted;
 
@@ -6237,30 +6241,36 @@ contract ProposalModule is MessaggeVerifier {
         initialized = true;
     }
 
-    function createProposal(address token, uint256 amount, address to, uint256 threshold) public {
+    // This function is used by the owner to create a new proposal. A proposal represents a transafer of tokens to a specific address
+    function createProposal(address token, uint256 amount, address to, uint256 threshold, uint256 minFid) public returns (uint256){
         require(msg.sender == owner, "only owner can create proposal");
-        uint256 proposalId = uint256(keccak256(abi.encodePacked(token, amount, threshold, block.timestamp)));
+        uint256 proposalId = lastProposalId++;
         proposals[proposalId] = Proposal(token, amount, to, threshold, 0, 0, false, minFid);
-        emit ProposalCreated(proposalId, token, amount, to, threshold);
+        emit ProposalCreated(proposalId, token, amount, to, threshold, minFid, false, block.timestamp);
+        return proposalId;
     }
 
+    // This function is used to execute a proposal if the threshold (accept or reject) is reached
     function executeProposal (uint256 proposalId) public {
         Proposal memory proposal = proposals[proposalId];
         if (proposal.acceptVotes >= proposal.threshold) {
             bytes memory data = abi.encodeWithSignature("transfer(address,uint256)", proposal.to, proposal.amount);
             require(GnosisSafe(safe).execTransactionFromModule(proposal.token, 0, data, Enum.Operation.Call), "Could not execute token transfer");
             proposal.terminated = true;
+            emit ProposalExecuted(proposalId, proposal.token, proposal.amount, proposal.to, proposal.threshold, proposal.minFid, true, block.timestamp);
         } else if (proposal.rejectVotes >= proposal.threshold) {
             proposal.terminated = true;
+            emit ProposalExecuted(proposalId, proposal.token, proposal.amount, proposal.to, proposal.threshold, proposal.minFid, true, block.timestamp);
         }
     }
 
+    // This function is used to verify the frame action body message (vote yes or no on a proposal) and cast the vote
     function verifyFrameActionBodyMessage(
-    bytes32 public_key,
-    bytes32 signature_r,
-    bytes32 signature_s,
-    bytes memory message,
-    uint256 proposalId
+      bytes32 public_key,
+      bytes32 signature_r,
+      bytes32 signature_s,
+      bytes memory message,
+      uint256 proposalId
   ) external {
     MessageData memory message_data = _verifyMessage(
       public_key,
@@ -6274,7 +6284,7 @@ contract ProposalModule is MessaggeVerifier {
     }
     require (!proposals[proposalId].terminated, "proposal already terminated");
 
-    require(message_data.frame_action_body.cast_id.fid <= proposals[proposalId].minFid, "fid must be less than the proposal minFid");
+    require(message_data.fid <= proposals[proposalId].minFid, "fid must be less than the proposal minFid");
 
     // if the users clicks the first button, we accept the proposal, otherwise we reject it
     if (message_data.frame_action_body.button_index == 1) {
@@ -6283,15 +6293,22 @@ contract ProposalModule is MessaggeVerifier {
       _vote(proposalId, public_key, false);
     }
 
+    bool accept = (message_data.frame_action_body.button_index == 1);    
+
     emit MessageFrameActionBodyVerified(
       message_data.fid,
       message_data.frame_action_body.button_index,
       message_data.frame_action_body.cast_id.fid,
       message_data.frame_action_body.cast_id.hash_,
-      message_data.frame_action_body.url
+      message_data.frame_action_body.url,
+      proposalId,
+      accept,
+      proposals[proposalId].acceptVotes,
+      proposals[proposalId].rejectVotes
     );
   }
 
+    // Internal function to cast a vote on a proposal
     function _vote(uint256 proposalId, bytes32 user, bool accept) internal {
         require(!voted[user][proposalId], "already voted");
         //terminate
